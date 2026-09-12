@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Compare original vs v2 output formats."""
 import subprocess, threading, time, socket, json, os, sys, signal
 
@@ -75,7 +75,7 @@ def test_wee():
     
     # V2
     tmp_v2 = os.path.join(WX_DIR, "_t_v2.py")
-    make_script(os.path.join(WX_DIR, "WX_2_WEE_v2.py"), tmp_v2,
+    make_script(os.path.join(WX_DIR, "WX_2_WEE.py"), tmp_v2,
                 [('localPort = 4001', 'localPort = {}'.format(IN_PORT)),
                  ('WeeWX_Port = 4002', 'WeeWX_Port = {}'.format(WEE_OUT_PORT))])
     v2_msgs = run_and_capture_wee(tmp_v2, "v2")
@@ -138,7 +138,7 @@ def test_gen_wx():
     os.makedirs(tmp_dir, exist_ok=True)
     
     results = {}
-    for ver, script_name in [("orig", "Gen_WX.py"), ("v2", "Gen_WX_v2.py")]:
+    for ver, script_name in [("orig", "Gen_WX.py"), ("v2", "Gen_WX.py")]:
         wx_f = os.path.join(tmp_dir, "WX_{}.txt".format(ver)).replace('\\','/')
         hum_f = os.path.join(tmp_dir, "Hum_{}.txt".format(ver)).replace('\\','/')
         hyb_f = os.path.join(tmp_dir, "Hyb_{}.txt".format(ver)).replace('\\','/')

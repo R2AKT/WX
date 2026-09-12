@@ -1,12 +1,12 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Test suite for WX v2 refactoring against WeatherFlow Tempest UDP protocol v171.
 Tests:
   1. Packet format (binary structure)
   2. Consumer parse + sanitize
-  3. WX_2_WEE_v2 protocol compliance (v171)
-  4. Gen_WX_v2 output format (APRS)
-  5. WX_2_MQTT_v2 structure
+  3. WX_2_WEE protocol compliance (v171)
+  4. Gen_WX output format (APRS)
+  5. WX_2_MQTT structure
 """
 import socket
 import struct
@@ -99,11 +99,11 @@ def test_parse_sanitize():
     check("wind_dir 360 stays (valid)", v4['wind_dir'] == 360)
 
 
-# ─── Test 3: WX_2_WEE_v2 protocol compliance (v171) ─────────────────────────
+# ─── Test 3: WX_2_WEE protocol compliance (v171) ─────────────────────────
 def test_wee_v171():
-    print("\n[Test 3] WX_2_WEE_v2 protocol compliance (v171)")
+    print("\n[Test 3] WX_2_WEE protocol compliance (v171)")
 
-    # We'll simulate what WX_2_WEE_v2 produces by running the same logic
+    # We'll simulate what WX_2_WEE produces by running the same logic
     mac = b'\xA8\x61\x0A\x00\x01\x01'
     serial_number = mac.hex().upper()
     hub_sn = mac.hex().upper()
@@ -214,9 +214,9 @@ def test_wee_v171():
         check("{}: JSON roundtrip".format(name), json.dumps(parsed) == js)
 
 
-# ─── Test 4: Gen_WX_v2 APRS format ─────────────────────────────────────────
+# ─── Test 4: Gen_WX APRS format ─────────────────────────────────────────
 def test_gen_wx_aprs():
-    print("\n[Test 4] Gen_WX_v2 APRS format")
+    print("\n[Test 4] Gen_WX APRS format")
     # Simulate the APRS output format
     ds18_t = 15.5
     bme_p = 755.0
@@ -302,7 +302,7 @@ def test_wind_tracker():
 # ─── Test 6: UDP Roundtrip (emulator -> consumer) ───────────────────────────
 def test_udp_roundtrip():
     print("\n[Test 6] UDP Roundtrip (emulator -> consumer)")
-    port = 4001
+    port = 14001
     mac = b'\xCA\xFE\x00\x00\x00\x01'
 
     received = []

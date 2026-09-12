@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-"""Integration test: run WX_2_WEE_v2 with emulator, verify JSON output."""
+﻿#!/usr/bin/env python3
+"""Integration test: run WX_2_WEE with emulator, verify JSON output."""
 import socket
 import struct
 import time
@@ -26,11 +26,11 @@ def send_burst(port, count=5, interval=0.1):
     s.close()
 
 if __name__ == "__main__":
-    print("Starting WX_2_WEE_v2 integration test...")
+    print("Starting WX_2_WEE integration test...")
     
-    # Start WX_2_WEE_v2
+    # Start WX_2_WEE
     proc = subprocess.Popen(
-        [sys.executable, '-u', 'WX_2_WEE_v2.py'],
+        [sys.executable, '-u', 'WX_2_WEE.py'],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, cwd=r'c:\wx'
     )
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         out, _ = proc.communicate()
     
     # Show relevant output lines
-    print("\n--- WX_2_WEE_v2 Output (last 30 lines) ---")
+    print("\n--- WX_2_WEE Output (last 30 lines) ---")
     lines = out.strip().split('\n')
     for line in lines[-30:]:
         print(line)

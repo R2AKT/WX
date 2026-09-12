@@ -45,9 +45,8 @@
                     │               │               │
                     ▼               ▼               ▼
             ┌───────────┐   ┌───────────┐   ┌───────────┐
-            │ Gen_WX_v2 │   │WX_2_MQTT_ │   │WX_2_WEE_  │
-            │  (APRS)   │   │   v2      │   │   v2      │
-            │           │   │  (MQTT)   │   │ (WeeWX)   │
+            │  Gen_WX   │   │WX_2_MQTT  │   │WX_2_WEE   │
+            │  (APRS)   │   │  (MQTT)   │   │ (WeeWX)   │
             └───────────┘   └───────────┘   └───────────┘
 ```
 
@@ -133,11 +132,11 @@ Broadcast на `255.255.255.255:4001`, 1 Гц.
 
 | Файл | Версия | Функция |
 |------|--------|---------|
-| `WX_master_v2.ino` | v0.6.0 | Arduino: чтение датчиков, UDP 1 Гц |
-| `WX_slave_v2.ino` | v0.4.0 | Arduino: приём UDP, вывод на LCD |
-| `Gen_WX_v2.py` | v0.6.0 | APRS-сводки (WX.txt, WX_hum.txt, WX_hyb.txt) |
-| `WX_2_MQTT_v2.py` | v0.5.0 | MQTT-публичер (21 топик) |
-| `WX_2_WEE_v2.py` | v0.3.0 | Мост WeeWX (протокол Tempest v1.7.1) |
+| `WX_master.ino` | v0.6.0 | Arduino: чтение датчиков, UDP 1 Гц |
+| `WX_slave.ino` | v0.4.0 | Arduino: приём UDP, вывод на LCD |
+| `Gen_WX.py` | v0.6.0 | APRS-сводки (WX.txt, WX_hum.txt, WX_hyb.txt) |
+| `WX_2_MQTT.py` | v0.5.0 | MQTT-публичер (21 топик) |
+| `WX_2_WEE.py` | v0.3.0 | Мост WeeWX (протокол Tempest v1.7.1) |
 | `wx_common.py` | - | Общий модуль: парсер пакета, WindTracker, утилиты |
 | `WX_emulator.py` | - | Генератор UDP-пакетов (для тестов) |
 
@@ -190,7 +189,7 @@ Broadcast на `255.255.255.255:4001`, 1 Гц.
 
 ## Интеграция с WeeWX (Tempest Protocol v1.7.1)
 
-`WX_2_WEE_v2.py` отправляет JSON в WeeWX (порт 4002) по протоколу WeatherFlow:
+`WX_2_WEE.py` отправляет JSON в WeeWX (порт 4002) по протоколу WeatherFlow:
 
 | Тип сообщения | Частота | Поля |
 |--------------|---------|------|
@@ -201,22 +200,27 @@ Broadcast на `255.255.255.255:4001`, 1 Гц.
 ### Ключевые настройки `weewx.conf`
 
 ```ini
-[WeatherFlowUDP]
-driver = user.weewx.driver_WeatherFlowUDP
+[Station]
 station_type = WeatherFlowUDP
-udp_source = ('127.0.0.1', 4002)
 
-# Данные ветра из rapid_wind (не obs_st)
+[WeatherFlowUDP]
+driver = user.weatherflowudp
+udp_address = 127.0.0.1
+udp_port = 4002
+udp_timeout = 180
+share_socket = true
+
+[[sensor_map]]
+outTemp = air_temperature.A8610A000101.obs_air
+outHumidity = relative_humidity.A8610A000101.obs_air
+pressure = station_pressure.A8610A000101.obs_air
 windSpeed = wind_speed.A8610A000101.rapid_wind
 windDir = wind_direction.A8610A000101.rapid_wind
-
-# Интервал архивирования (секунды)
-archive_interval = 60
 ```
 
 ---
 
-## APRS-вывод (Gen_WX_v2.py)
+## APRS-вывод (Gen_WX.py)
 
 Три файла, генерируемые каждый 1-минутный цикл ветра:
 
@@ -244,18 +248,18 @@ archive_interval = 60
 wx/
 ├── README.md
 ├── README.ru.md
-├── LICENSE.txt
+├── LICENSE
 ├── Addendum.txt
 ├── docs/
 │   ├── logo.svg
 │   └── station.jpg
 ├── wx_common.py
-├── Gen_WX_v2.py
-├── WX_2_MQTT_v2.py
-├── WX_2_WEE_v2.py
+├── Gen_WX.py
+├── WX_2_MQTT.py
+├── WX_2_WEE.py
 ├── WX_emulator.py
-├── WX_master_v2.ino
-├── WX_slave_v2.ino
+├── WX_master.ino
+├── WX_slave.ino
 ├── weewx.conf
 └── tests/
     ├── test_v171.py
@@ -273,7 +277,7 @@ wx/
 ### 1. Arduino Мастер
 
 1. Установить библиотеки **EtherCard** (JeeLabs) + **DallasTemperature**
-2. Открыть `WX_master_v2.ino` в Arduino IDE
+2. Открыть `WX_master.ino` в Arduino IDE
 3. Настроить сеть (DHCP или статический IP)
 4. Загрузить на Arduino Nano
 
@@ -284,9 +288,9 @@ wx/
 pip install paho-mqtt
 
 # Запустить сервисы (в отдельных терминалах или как systemd-сервисы)
-python Gen_WX_v2.py        # APRS-вывод
-python WX_2_MQTT_v2.py     # MQTT-публичер
-python WX_2_WEE_v2.py      # Мост WeeWX
+python Gen_WX.py         # APRS-вывод
+python WX_2_MQTT.py      # MQTT-публичер
+python WX_2_WEE.py       # Мост WeeWX
 ```
 
 **Конфигурация** находится в начале каждого Python-файла (lat/lon, IP MQTT-брокера, пути к файлам).
@@ -295,7 +299,7 @@ python WX_2_WEE_v2.py      # Мост WeeWX
 
 1. Установить WeeWX 5.x с драйвером WeatherFlowUDP
 2. Скопировать `weewx.conf` и настроить параметры станции
-3. Убедиться, что порт 4002 свободен для приёма от `WX_2_WEE_v2.py`
+3. Убедиться, что порт 4002 свободен для приёма от `WX_2_WEE.py`
 
 ### 4. Тесты
 
@@ -376,6 +380,6 @@ Trend (гПа) = (P_current - P_avg_30min) × 1.33322
 
 ## Лицензия
 
-[MIT](LICENSE.txt) + [Дополнение](Addendum.txt)
+[MIT](LICENSE) + [Дополнение](Addendum.txt)
 
 Copyright (c) 2024-2026 R2AKT — Щёлково, Россия

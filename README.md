@@ -45,9 +45,8 @@
                     │               │               │
                     ▼               ▼               ▼
             ┌───────────┐   ┌───────────┐   ┌───────────┐
-            │ Gen_WX_v2 │   │WX_2_MQTT_ │   │WX_2_WEE_  │
-            │  (APRS)   │   │   v2      │   │   v2      │
-            │           │   │  (MQTT)   │   │ (WeeWX)   │
+            │  Gen_WX   │   │WX_2_MQTT  │   │WX_2_WEE   │
+            │  (APRS)   │   │  (MQTT)   │   │ (WeeWX)   │
             └───────────┘   └───────────┘   └───────────┘
 ```
 
@@ -133,11 +132,11 @@ Broadcast to `255.255.255.255:4001`, 1 Hz.
 
 | File | Version | Function |
 |------|---------|----------|
-| `WX_master_v2.ino` | v0.6.0 | Arduino: reads sensors, sends UDP at 1 Hz |
-| `WX_slave_v2.ino` | v0.4.0 | Arduino: receives UDP, displays on LCD |
-| `Gen_WX_v2.py` | v0.6.0 | APRS weather reports (WX.txt, WX_hum.txt, WX_hyb.txt) |
-| `WX_2_MQTT_v2.py` | v0.5.0 | MQTT broker publisher (21 topics) |
-| `WX_2_WEE_v2.py` | v0.3.0 | WeeWX bridge (Tempest protocol v1.7.1) |
+| `WX_master.ino` | v0.6.0 | Arduino: reads sensors, sends UDP at 1 Hz |
+| `WX_slave.ino` | v0.4.0 | Arduino: receives UDP, displays on LCD |
+| `Gen_WX.py` | v0.6.0 | APRS weather reports (WX.txt, WX_hum.txt, WX_hyb.txt) |
+| `WX_2_MQTT.py` | v0.5.0 | MQTT broker publisher (21 topics) |
+| `WX_2_WEE.py` | v0.3.0 | WeeWX bridge (Tempest protocol v1.7.1) |
 | `wx_common.py` | - | Shared module: packet parser, WindTracker, utilities |
 | `WX_emulator.py` | - | UDP packet generator (for testing) |
 
@@ -190,7 +189,7 @@ Base topic: `WX_Station/`
 
 ## WeeWX Integration (Tempest Protocol v1.7.1)
 
-`WX_2_WEE_v2.py` sends JSON to WeeWX (port 4002) using the WeatherFlow UDP protocol:
+`WX_2_WEE.py` sends JSON to WeeWX (port 4002) using the WeatherFlow UDP protocol:
 
 | Message type | Frequency | Fields |
 |-------------|-----------|--------|
@@ -201,22 +200,27 @@ Base topic: `WX_Station/`
 ### Key `weewx.conf` settings
 
 ```ini
-[WeatherFlowUDP]
-driver = user.weewx.driver_WeatherFlowUDP
+[Station]
 station_type = WeatherFlowUDP
-udp_source = ('127.0.0.1', 4002)
 
-# Wind data from rapid_wind (not obs_st)
+[WeatherFlowUDP]
+driver = user.weatherflowudp
+udp_address = 127.0.0.1
+udp_port = 4002
+udp_timeout = 180
+share_socket = true
+
+[[sensor_map]]
+outTemp = air_temperature.A8610A000101.obs_air
+outHumidity = relative_humidity.A8610A000101.obs_air
+pressure = station_pressure.A8610A000101.obs_air
 windSpeed = wind_speed.A8610A000101.rapid_wind
 windDir = wind_direction.A8610A000101.rapid_wind
-
-# Archive interval (seconds)
-archive_interval = 60
 ```
 
 ---
 
-## APRS Output (Gen_WX_v2.py)
+## APRS Output (Gen_WX.py)
 
 Three output files generated per 1-minute wind cycle:
 
@@ -244,18 +248,18 @@ Three output files generated per 1-minute wind cycle:
 wx/
 ├── README.md
 ├── README.ru.md
-├── LICENSE.txt
+├── LICENSE
 ├── Addendum.txt
 ├── docs/
 │   ├── logo.svg
 │   └── station.jpg
 ├── wx_common.py
-├── Gen_WX_v2.py
-├── WX_2_MQTT_v2.py
-├── WX_2_WEE_v2.py
+├── Gen_WX.py
+├── WX_2_MQTT.py
+├── WX_2_WEE.py
 ├── WX_emulator.py
-├── WX_master_v2.ino
-├── WX_slave_v2.ino
+├── WX_master.ino
+├── WX_slave.ino
 ├── weewx.conf
 └── tests/
     ├── test_v171.py
@@ -273,7 +277,7 @@ wx/
 ### 1. Arduino Master
 
 1. Install **EtherCard** (JeeLabs) + **DallasTemperature** libraries
-2. Open `WX_master_v2.ino` in Arduino IDE
+2. Open `WX_master.ino` in Arduino IDE
 3. Configure network (DHCP or static IP)
 4. Upload to Arduino Nano
 
@@ -284,9 +288,9 @@ wx/
 pip install paho-mqtt
 
 # Run services (in separate terminals or as systemd services)
-python Gen_WX_v2.py        # APRS output
-python WX_2_MQTT_v2.py     # MQTT publisher
-python WX_2_WEE_v2.py      # WeeWX bridge
+python Gen_WX.py         # APRS output
+python WX_2_MQTT.py      # MQTT publisher
+python WX_2_WEE.py       # WeeWX bridge
 ```
 
 **Configuration** is at the top of each Python file (lat/lon, MQTT broker IP, file paths).
@@ -295,7 +299,7 @@ python WX_2_WEE_v2.py      # WeeWX bridge
 
 1. Install WeeWX 5.x with WeatherFlowUDP driver
 2. Copy `weewx.conf` and adjust station parameters
-3. Ensure port 4002 is free for `WX_2_WEE_v2.py` to send to
+3. Ensure port 4002 is free for `WX_2_WEE.py` to send to
 
 ### 4. Tests
 
@@ -376,6 +380,6 @@ Status: `ok` → `warning` → `offline` (NaN detected).
 
 ## License
 
-[MIT](LICENSE.txt) + [Addendum](Addendum.txt)
+[MIT](LICENSE) + [Addendum](Addendum.txt)
 
 Copyright (c) 2024-2026 R2AKT

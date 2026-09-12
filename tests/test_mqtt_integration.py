@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-Integration test: WX_2_MQTT_v2.py with emulator.
+Integration test: WX_2_MQTT.py with emulator.
 Runs full pipeline: emulator packet → parse → sanitize → tracker → derived calcs.
 Prints all 21 MQTT topics with values (without actual broker connection).
 """
@@ -13,7 +13,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from wx_common import parse_packet, sanitize, WindTracker
 
-# --- Import calc functions from WX_2_MQTT_v2 ---
+# --- Import calc functions from WX_2_MQTT ---
 def calc_dewpoint(temp_c, rh_pct):
     if rh_pct <= 0 or rh_pct >= 100:
         return temp_c if rh_pct >= 100 else -99.0
@@ -108,7 +108,7 @@ def weather_prediction(v, p_trend, dp):
 
 def run():
     print("=" * 60)
-    print("Integration Test: WX_2_MQTT_v2 full pipeline")
+    print("Integration Test: WX_2_MQTT full pipeline")
     print("Emulator -> parse -> sanitize -> tracker -> MQTT topics")
     print("=" * 60)
 

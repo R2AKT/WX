@@ -1,5 +1,5 @@
-#!/usr/bin/env python3
-"""Quick test for WX_2_MQTT_v2 derived calculations."""
+﻿#!/usr/bin/env python3
+"""Quick test for WX_2_MQTT derived calculations."""
 import math
 import json
 
