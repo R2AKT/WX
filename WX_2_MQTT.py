@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #
 # Weather to MQTT service by R2AKT. Ver.0.5.0 - refactored
+# Project - https://github.com/R2AKT/WX
 #
 import logging
 import paho.mqtt.client as mqtt

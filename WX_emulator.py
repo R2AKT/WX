@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Project - https://github.com/R2AKT/WX
 """
 WX Emulator - sends 36-byte binary UDP packets simulating Arduino weather station.
 Usage:

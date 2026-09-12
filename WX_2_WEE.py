@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #
 # Weather to WeeWX service by R2AKT. Ver.0.3.0 - refactored
+# Project - https://github.com/R2AKT/WX
 # Protocol: WeatherFlow Tempest UDP v171 (FINAL)
 # https://weatherflow.github.io/Tempest/api/udp/v171/
 #

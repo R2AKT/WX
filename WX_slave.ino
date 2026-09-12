@@ -3,7 +3,7 @@
 // Arduino Weather station SLAVE (LCD display) by Sergey Dorozhkin aka R2AKT.
 // (C) Copyright 2021-2026.
 // Software version: v0.4.0
-// Project - https://github.com/r2akt/
+// Project - https://github.com/R2AKT/WX
 //
 // Changelog v0.3.0:
 //   - Fix: Protocol updated to 36-byte format (SHT_T/SHT_H added, wind at [30:36])

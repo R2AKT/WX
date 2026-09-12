@@ -21,40 +21,37 @@
 ## System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    WX_MASTER (Arduino Nano + ENC28J60)              │
-│                                                                     │
-│  Sensors:                                                           │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐   ┌────────┐  ┌────────┐  │
-│  │ DS18B20  │  │ BME280   │  │ SHT31    │   │AS5600  │  │TLE4934 │  │
-│  │ (1-Wire) │  │ (I2C)    │  │ (I2C)    │   │(I2C)   │  │(GPIO)  │  │
-│  │  Temp    │  │ T, H, P  │  │ T, H     │   │ Wind   │  │ Wind   │  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘   │ Dir    │  │ Speed  │  │
-│       │              │             │        └───┬────┘  └───┬────┘  │
-│       └──────────────┴─────────────┴────────────┴───────────┘       │
-│                              │                                      │
-│                    36-byte UDP packet (1 Hz)                        │
-│                    Broadcast → 255.255.255.255:4001                 │
-└──────────────────────────────┬──────────────────────────────────────┘
-                               │
-              ┌────────────────┼────────────────┐
-              │                │                │
-    ┌─────────▼──────┐ ┌──────▼───────┐ ┌──────▼──────────┐
-    │  Gen_WX.py     │ │WX_2_MQTT     │ │  WX_2_WEE.py    │
-    │  (APRS files)  │ │  (21 topics) │ │  (Tempest v171) │
-    └────────────────┘ └──────────────┘ └──────┬──────────┘
-                                               │
-                                    ┌──────────▼──────────┐
-                                    │  WeeWX 5.2.0        │
-                                    │  (WeatherFlowUDP)   │
-                                    │  → Grafana/History  │
-                                    └─────────────────────┘
-
-    ┌─────────────────────────────────────────────┐
-    │  WX_SLAVE (Arduino Nano + ENC28J60 + LCD)   │
-    │  Receives UDP:4001, displays on 16x2 LCD    │
-    └─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  WEATHER STATION (Arduino Nano + ENC28J60)                              │
+│                                                                         │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌────────┐  ┌────────┐        │
+│  │ DS18B20 │  │ BME280  │  │ SHT31   │  │AS5600  │  │TLE4934 │        │
+│  │(1-Wire) │  │(I2C)    │  │(I2C)    │  │(I2C)   │  │(GPIO)  │        │
+│  └────┬────┘  └────┬────┘  └────┬────┘  └───┬────┘  └───┬────┘        │
+│       │            │            │           │           │              │
+│       └────────────┴────────────┴───────────┴───────────┘              │
+│                                    │                                    │
+│                              ┌────┴────┐                               │
+│                              │ Arduino │ ← Timer1 ISR (1 Hz)           │
+│                              │  Nano   │                               │
+│                              └────┬────┘                               │
+│                                   │                                    │
+│                              ┌────┴────┐                               │
+│                              │ENC28J60 │ → UDP broadcast :4001         │
+│                              └────┬────┘                               │
+└───────────────────────────────────┼──────────────────────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+                    ▼               ▼               ▼
+            ┌───────────┐   ┌───────────┐   ┌───────────┐
+            │ Gen_WX_v2 │   │WX_2_MQTT_ │   │WX_2_WEE_  │
+            │  (APRS)   │   │   v2      │   │   v2      │
+            │           │   │  (MQTT)   │   │ (WeeWX)   │
+            └───────────┘   └───────────┘   └───────────┘
 ```
+
+**All three Python services listen on the same UDP port 4001** and parse the same 36-byte binary packet. Each converts to its respective output format.
 
 ---
 
@@ -64,26 +61,35 @@
 
 | Component | Interface | Purpose |
 |-----------|-----------|---------|
-| Arduino Nano (ATmega328P) | — | Main controller |
+| Arduino Nano (ATmega328P) | - | Main controller |
 | ENC28J60 | SPI | Ethernet (passive PoE) |
-| DS18B20 | 1-Wire | Air temperature (°C) |
-| BME280 | I2C (0x76) | Temperature, Humidity, Pressure |
-| SHT31 | I2C (0x44) | Temperature, Humidity (redundancy) |
+| DS18B20 | 1-Wire | Air temperature (Stevenson screen) |
+| BME280 | I2C (0x76) | Atmospheric pressure (vented enclosure) |
+| SHT31 | I2C (0x44) | Relative humidity (30s heater cycle) |
 | AS5600 | I2C | Wind direction (magnetic, 14-bit) |
-| TLE4934 | GPIO (interrupt) | Wind speed (Hall effect, 360 pulses/rev) |
+| TLE4934 | GPIO (interrupt) | Wind speed (Hall effect, 2 pulses/rev, 4 magnets) |
+
+> **Wind speed sensor:** 4 neodymium magnets with alternating polarity are mounted on the anemometer cup. The TLE4934 generates 2 pulses per revolution. Alternating polarity ensures reliable rejection of false triggers at the switching threshold zone.
 
 ### Slave (WX_SLAVE)
 
 | Component | Purpose |
 |-----------|---------|
-| Arduino Nano + ENC28J60 | UDP receiver |
-| 16×2 LCD (I2C, PCF8574) | Local weather display |
+| Arduino Nano | LCD display controller |
+| ENC28J60 | UDP receiver (same port 4001) |
+| 1602 LCD (I2C) | Shows: MAC, T+P, H+W, Dir |
 
-### Python Host
+---
 
-- Raspberry Pi (or any Linux machine on the same network)
-- Runs: `Gen_WX.py`, `WX_2_MQTT.py`, `WX_2_WEE.py`
-- WeeWX 5.2.0 (optional)
+## Primary Data Sources
+
+| Measurement | Source | Notes |
+|-------------|--------|-------|
+| Temperature | DS18B20 | In Stevenson screen |
+| Humidity | SHT31 | 30s heater cycle (temperature ignored) |
+| Pressure | BME280 | Atmospheric (vented enclosure) |
+| Wind speed | TLE4934 | Hall sensor, 2 pulses/rev |
+| Wind direction | AS5600 | Magnetic, 14-bit |
 
 ---
 
@@ -93,89 +99,47 @@ Broadcast to `255.255.255.255:4001`, 1 Hz.
 
 | Offset | Size | Type | Field |
 |--------|------|------|-------|
-| 0–5 | 6 | bytes | MAC address |
-| 6–9 | 4 | float32 LE | DS18B20 Temperature (°C) |
-| 10–13 | 4 | float32 LE | BME280 Temperature (°C) |
-| 14–17 | 4 | float32 LE | BME280 Relative Humidity (%) |
-| 18–21 | 4 | float32 LE | BME280 Pressure (mmHg) |
-| 22–25 | 4 | float32 LE | SHT31 Temperature (°C) |
-| 26–29 | 4 | float32 LE | SHT31 Relative Humidity (%) |
-| 30–31 | 2 | int16 LE | Wind Direction (0–360°) |
-| 32–35 | 4 | float32 LE | Wind Speed (m/s) |
+| 0-5 | 6 | bytes | MAC address |
+| 6-9 | 4 | float32 LE | DS18B20 Temperature (°C) ** [primary] |
+| 10-13 | 4 | float32 LE | BME280 Temperature (°C) |
+| 14-17 | 4 | float32 LE | BME280 Relative Humidity (%) |
+| 18-21 | 4 | float32 LE | BME280 Pressure (mmHg) ** [primary] |
+| 22-25 | 4 | float32 LE | SHT31 Temperature (°C) |
+| 26-29 | 4 | float32 LE | SHT31 Relative Humidity (%) ** [primary] |
+| 30-31 | 2 | int16 LE | Wind Direction (0-360°) |
+| 32-35 | 4 | float32 LE | Wind Speed (m/s) |
 
 ### NaN / Error Encoding
 
 | Sensor | Sentinel value |
 |--------|---------------|
-| Temperature (any) | −127.0 °C |
+| Temperature (any) | -127.0 °C |
 | Humidity (any) | 100.0 % → clamped to 99 |
 | Pressure | 100.0 mmHg |
 | Wind | 0 |
 
-### Valid Ranges (consumer-side validation)
+### Range Validation
 
-| Field | Min | Max |
-|-------|-----|-----|
-| Temperature | −50 °C | +50 °C |
-| Pressure | 700 mmHg | 800 mmHg |
-| Humidity | 0 % | 99 % |
-| Wind direction | 0° | 360° |
+| Field | Valid range |
+|-------|-------------|
+| Temperature | -50 … +50 °C |
+| Pressure | 700 … 800 mmHg |
+| Humidity | 0 … 99 % |
+| Wind direction | 0 … 360° (values > 360 wrap to 0) |
 
 ---
 
-## Software
+## Software Components
 
-### File Structure
-
-```
-wx/
-├── README.md
-├── README.ru.md
-├── LICENSE.txt
-├── Addendum.txt
-├── docs/
-│   ├── logo.svg
-│   └── station.jpg
-├── wx_common.py              ← shared library (parser, sanitizer, WindTracker)
-├── Gen_WX.py                 ← APRS generator
-├── WX_2_MQTT.py              ← MQTT publisher (21 topics)
-├── WX_2_WEE.py               ← WeeWX bridge (Tempest v1.7.1)
-├── WX_emulator.py            ← UDP packet emulator (testing)
-├── WX_master.ino             ← Arduino master sketch
-├── WX_slave.ino              ← Arduino LCD slave sketch
-├── weewx.conf                ← WeeWX configuration
-└── tests/
-    ├── test_v171.py          ← 73-test protocol suite
-    ├── test_calculations.py  ← unit tests (dew point, wind chill, etc.)
-    ├── test_mqtt_integration.py
-    └── test_integration.py
-```
-
-### Component Versions
-
-| File | Version | Role |
-|------|---------|------|
-| `wx_common.py` | — | Shared **library** (not standalone) |
-| `Gen_WX.py`    | v0.6.0 | APRS file generator |
-| `WX_2_MQTT.py`    | v0.5.0 | MQTT publisher |
-| `WX_2_WEE.py`    | v0.3.0 | WeeWX bridge |
-| `WX_master.ino`    | v0.6.0 | Arduino master |
-| `WX_slave.ino`    | v0.4.0 | Arduino LCD slave |
-| `WX_emulator.py`    | — | Testing utility |
-
-### Refactoring Notes (v0.5→v0.6)
-
-Original scripts refactored to fix:
-- `udp_socket.close()` undefined variable → consistent naming
-- `math.isnan()` on `int` → applied only to float fields
-- `DataReady = True` (DEBUG override) → proper 60-second cycle
-- `mqtt_client.loop_stop()` before main loop → moved after
-- WeeWX: `rapid_wind` nested `[[...]]` → flat `[...]` (per v1.7.1)
-- WeeWX: removed port 4002 `bind()` conflict → `sendto()` only
-- Arduino: `ether.packetLoop()` missing in UDP mode (DHCP expiry)
-- Arduino: SHT NaN → 0 (valid value!) → −127/100 sentinel
-- Arduino: `sizeof(int)` non-portable → explicit byte operations
-- Slave: parsed 28-byte protocol instead of 36-byte
+| File | Version | Function |
+|------|---------|----------|
+| `WX_master_v2.ino` | v0.6.0 | Arduino: reads sensors, sends UDP at 1 Hz |
+| `WX_slave_v2.ino` | v0.4.0 | Arduino: receives UDP, displays on LCD |
+| `Gen_WX_v2.py` | v0.6.0 | APRS weather reports (WX.txt, WX_hum.txt, WX_hyb.txt) |
+| `WX_2_MQTT_v2.py` | v0.5.0 | MQTT broker publisher (21 topics) |
+| `WX_2_WEE_v2.py` | v0.3.0 | WeeWX bridge (Tempest protocol v1.7.1) |
+| `wx_common.py` | - | Shared module: packet parser, WindTracker, utilities |
+| `WX_emulator.py` | - | UDP packet generator (for testing) |
 
 ---
 
@@ -199,10 +163,10 @@ Base topic: `WX_Station/`
 | `sensor/wind_max_10m` | float | 10-min max (m/s) |
 | `sensor/wind_avr_1h` | float | 1-hour average (m/s) |
 | `sensor/wind_max_1h` | float | 1-hour max (m/s) |
-| `sensor/bme_temperature` | float | BME280 temperature (°C) |
-| `sensor/sht_temperature` | float | SHT31 temperature (°C) |
-| `sensor/bme_humidity` | float | BME280 humidity (%) |
-| `sensor/sht_humidity` | float | SHT31 humidity (%) |
+| `sensor/bme_temperature` | float | BME280 temperature (°C, reference) |
+| `sensor/sht_temperature` | float | SHT31 temperature (°C, reference) |
+| `sensor/bme_humidity` | float | BME280 humidity (% , reference) |
+| `sensor/sht_humidity` | float | SHT31 humidity (% , primary) |
 
 ### Derived Values
 
@@ -226,82 +190,176 @@ Base topic: `WX_Station/`
 
 ## WeeWX Integration (Tempest Protocol v1.7.1)
 
-`WX_2_WEE.py` sends WeatherFlow Tempest UDP JSON to WeeWX on `127.0.0.1:4002`.
+`WX_2_WEE_v2.py` sends JSON to WeeWX (port 4002) using the WeatherFlow UDP protocol:
 
-| Message type | Interval | Format |
-|--------------|----------|--------|
-| `rapid_wind` | 1 Hz (every packet) | `ob: [ts, speed_m/s, dir_deg]` (flat) |
-| `obs_st` | 60 s | 18 fields, `obs: [[...]]` |
-| `obs_air` | 60 s | 8 fields, `obs: [[...]]` |
+| Message type | Frequency | Fields |
+|-------------|-----------|--------|
+| `rapid_wind` | every 1 Hz | timestamp, wind speed (m/s), wind direction (°) |
+| `obs_st` | every 1 min | 18 fields: wind avg/max/direction, pressure, temperature, humidity, lightning, battery, interval |
+| `obs_air` | every 1 min | 8 fields: pressure, temperature, humidity, lightning, battery, interval |
 
-**Key `weewx.conf` settings:**
+### Key `weewx.conf` settings
 
 ```ini
-[DataSources]
-    driver = user.WeatherFlowUDP
-    UDPBindAddress = "127.0.0.1"
-    UDPBindPort = 4002
+[WeatherFlowUDP]
+driver = user.weewx.driver_WeatherFlowUDP
+station_type = WeatherFlowUDP
+udp_source = ('127.0.0.1', 4002)
 
-[StdFrame]
-    archive_interval = 60
+# Wind data from rapid_wind (not obs_st)
+windSpeed = wind_speed.A8610A000101.rapid_wind
+windDir = wind_direction.A8610A000101.rapid_wind
+
+# Archive interval (seconds)
+archive_interval = 60
 ```
-
-Wind data: `rapid_wind` (live) → WeeWX `windSpeed`/`windDir` mappings.
 
 ---
 
-## APRS Output
+## APRS Output (Gen_WX_v2.py)
 
-`Gen_WX.py` writes files to `/tmp/` (60-second cycle):
+Three output files generated per 1-minute wind cycle:
 
 | File | Format |
 |------|--------|
-| `WX.txt` | APRS mic-E |
-| `WX_hum.txt` | Human-readable |
-| `WX_hyb.txt` | Hybrid (APRS + human text) |
+| `WX.txt` | APRS microformat: `!lat/lon_cDDDsSSSgGGGtTTThHHbPPPPPCOMMENT` |
+| `WX_hum.txt` | Human-readable: `:lat/lon_comment: Temperature, Wind, Humidity, Pressure` |
+| `WX_hyb.txt` | Hybrid: APRS + human-readable in one message |
 
-**Example (APRS):**
+**Example (WX.txt):**
 ```
-!5556.34N/03758.45E_c180s007g012t037r...p...P...h54b10066Shchyolkovo WX station
+!5556.34N/03758.45E_c090s007g007t015h54b1006 shchyolkovo WX station
 ```
 
-**Example (Human):**
+**Example (WX_hum.txt):**
 ```
-:=5556.34N/03758.45E_Shchyolkovo WX: Temperature => 2.5 C; Wind => 3.2 m/s, S; Gust => 7.8 m/s; Humidity => 54 %; Pressure => 741 mmHg
+:=5556.34N/03758.45E_Shchyolkovo WX: Temperature => 2.5 C; Wind => 3.2 m/s, E; Gust => 7.8 m/s; Humidity => 54 %; Pressure => 741 mm Hg
 ```
 
 ---
 
-## Wind Tracker
+## File Structure
 
-Rolling statistics maintained by `WindTracker` (in `wx_common.py`):
+```
+wx/
+├── README.md
+├── README.ru.md
+├── LICENSE.txt
+├── Addendum.txt
+├── docs/
+│   ├── logo.svg
+│   └── station.jpg
+├── wx_common.py
+├── Gen_WX_v2.py
+├── WX_2_MQTT_v2.py
+├── WX_2_WEE_v2.py
+├── WX_emulator.py
+├── WX_master_v2.ino
+├── WX_slave_v2.ino
+├── weewx.conf
+└── tests/
+    ├── test_v171.py
+    ├── test_calculations.py
+    ├── test_mqtt_integration.py
+    ├── test_integration.py
+    ├── test_compare.py
+    └── test_originals.py
+```
 
-| Period | Buffer | Method |
-|--------|--------|--------|
-| 1 min | 60 samples | Sum / 60 (includes zeros in first minute) |
-| 10 min | 10 × 1-min | Sum of 1-min avgs / 10 |
-| 1 hour | 6 × 10-min | Sum of 10-min avgs / 6 |
+---
 
-Also tracks: `wind_max` (instantaneous), `wind_max_1m/10m/1h`, `wind_avr_max_1m/10m/1h` (max of sustained averages).
+## Installation
+
+### 1. Arduino Master
+
+1. Install **EtherCard** (JeeLabs) + **DallasTemperature** libraries
+2. Open `WX_master_v2.ino` in Arduino IDE
+3. Configure network (DHCP or static IP)
+4. Upload to Arduino Nano
+
+### 2. Python Services
+
+```bash
+# Install dependencies
+pip install paho-mqtt
+
+# Run services (in separate terminals or as systemd services)
+python Gen_WX_v2.py        # APRS output
+python WX_2_MQTT_v2.py     # MQTT publisher
+python WX_2_WEE_v2.py      # WeeWX bridge
+```
+
+**Configuration** is at the top of each Python file (lat/lon, MQTT broker IP, file paths).
+
+### 3. WeeWX
+
+1. Install WeeWX 5.x with WeatherFlowUDP driver
+2. Copy `weewx.conf` and adjust station parameters
+3. Ensure port 4002 is free for `WX_2_WEE_v2.py` to send to
+
+### 4. Tests
+
+```bash
+cd tests
+python test_v171.py           # Protocol compliance (73 tests)
+python test_calculations.py   # Derived calculations
+python test_mqtt_integration.py  # Full MQTT pipeline
+```
+
+---
+
+## Wind Tracker Algorithm
+
+`WindTracker` in `wx_common.py` maintains three levels of rolling statistics:
+
+| Level | Samples | Source |
+|-------|---------|--------|
+| 1-minute | 60 raw samples (1 Hz) | Direct |
+| 10-minute | 10 one-minute averages | From 1-min level |
+| 1-hour | 6 ten-minute averages | From 10-min level |
+
+- **Average** = sum / array length (includes zero-padded slots)
+- **Max** = max of all samples in window
+- **Average of max** = average of per-cycle maximums
+
+Direction is tracked separately using vector averaging (not circular mean) for the 1-minute period, then propagated to longer periods.
 
 ---
 
 ## Derived Calculations
 
-| Metric | Formula | Valid when |
-|--------|---------|-----------|
-| Dew point | Magnus: `γ=ln(RH/100)+17.67T/(243.5+T)`, `dp=243.5γ/(17.67−γ)` | 0 < RH < 100 |
-| Wind chill | `13.12+0.6215T−11.37v^0.16+0.3965T·v^0.16` (v in km/h) | T < 10 °C, v > 1.39 m/s |
-| Pressure trend 30m | `(P_now − P_avg_30min) × 1.33322` → hPa | Rolling 30-sample window |
+### Dew Point (Magnus Formula)
 
-### Weather Prediction (heuristic)
+```
+γ = ln(RH/100) + 17.67 × T / (243.5 + T)
+T_dp = 243.5 × γ / (17.67 - γ)
+```
+
+### Wind Chill
+
+Valid for T < 10 °C and V > 1.39 m/s:
+
+```
+V_kmh = V_ms × 3.6
+T_wc = 13.12 + 0.6215×T - 11.37×(V_kmh^0.16) + 0.3965×T×(V_kmh^0.16)
+```
+
+### Pressure Trend (30-min)
+
+```
+Trend (hPa) = (P_current - P_avg_30min) × 1.33322
+```
+
+Rolling buffer: 60 samples (1-min avg) → 30-sample 30-min average.
+
+### Weather Prediction (Heuristic)
 
 | Condition | Output |
 |-----------|--------|
-| trend < −3 hPa AND RH > 80% | `rain_likely` |
-| trend < −2 hPa | `change_expected` |
+| trend < -3 hPa AND RH > 80% | `rain_likely` |
+| trend < -2 hPa | `change_expected` |
 | trend > +3 hPa | `clearing` |
-| (T − dp) < 3 °C AND T < 15 °C | `fog_possible` |
+| (T - dp) < 3 °C AND T < 15 °C | `fog_possible` |
 | Wind > 10 m/s | `strong_wind` |
 | else | `stable` |
 
@@ -316,55 +374,8 @@ Status: `ok` → `warning` → `offline` (NaN detected).
 
 ---
 
-## Installation
-
-### 1. Arduino Master
-
-1. Install **EtherCard** (JeeLabs) + **DallasTemperature** libraries
-2. Open `WX_master.ino` in Arduino IDE
-3. Configure network (DHCP or static IP)
-4. Upload to Arduino Nano
-
-### 2. Python Services
-
-```bash
-pip install paho-mqtt
-
-# Run services (separate terminals or systemd units)
-python3 Gen_WX.py
-python3 WX_2_MQTT.py
-python3 WX_2_WEE.py    # only if using WeeWX
-```
-
-### 3. WeeWX (optional)
-
-1. Install WeeWX 5.2.0
-2. Place `weewx.conf` in config directory
-3. `weewxd -f weewx.conf`
-
-### 4. Testing (no hardware required)
-
-```bash
-# Terminal 1: start a service
-python3 WX_2_MQTT.py
-
-# Terminal 2: feed emulator (60 packets at 1 Hz)
-python3 WX_emulator.py --dst 127.0.0.1 --count 60
-
-# Full test suite
-python3 tests/test_v171.py
-python3 tests/test_calculations.py
-python3 tests/test_mqtt_integration.py
-```
-
----
-
 ## License
 
-MIT — see [LICENSE](LICENSE) + [Addendum.txt](Addendum.txt)
+[MIT](LICENSE.txt) + [Addendum](Addendum.txt)
 
----
-
-## Author
-
-**R2AKT** — Shchyolkovo, Russia
+Copyright (c) 2024-2026 R2AKT

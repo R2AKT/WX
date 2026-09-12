@@ -2,7 +2,7 @@
 ////
 // Arduino Weather station by Sergey Dorozhkin aka R2AKT. (C) Copyright 2021-2026.
 // Software version: v0.6.0
-// Project - https://github.com/r2akt/
+// Project - https://github.com/R2AKT/WX
 //
 // Changelog v0.6.0:
 //   - Fix: ether.packetLoop() added to UDP mode (DHCP lease renewal)

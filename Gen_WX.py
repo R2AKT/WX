@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 #
 # APRS weather service by R2AKT. Ver.0.6.0 - refactored
+# Project - https://github.com/R2AKT/WX
 #
 import socket
 import struct
