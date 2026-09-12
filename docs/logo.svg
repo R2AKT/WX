@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#1a237e"/>
+  <circle cx="100" cy="100" r="88" fill="none" stroke="#42a5f5" stroke-width="2"/>
+  
+  <!-- Cloud shape -->
+  <path d="M 55 110 
+           Q 55 90 70 85 
+           Q 72 65 90 62 
+           Q 108 58 118 70 
+           Q 135 65 140 82 
+           Q 155 85 152 105 
+           Q 150 118 135 118 
+           L 65 118 
+           Q 55 118 55 110 Z" 
+        fill="#e3f2fd" stroke="#90caf9" stroke-width="1.5"/>
+  
+  <!-- Wind lines -->
+  <line x1="40" y1="130" x2="90" y2="130" stroke="#42a5f5" stroke-width="3" stroke-linecap="round"/>
+  <line x1="50" y1="140" x2="105" y2="140" stroke="#64b5f6" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="45" y1="150" x2="80" y2="150" stroke="#90caf9" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Arrow on wind line 1 -->
+  <polygon points="90,126 100,130 90,134" fill="#42a5f5"/>
+  
+  <!-- Temperature indicator (small circle) -->
+  <circle cx="130" cy="135" r="8" fill="#ff7043" opacity="0.9"/>
+  <text x="130" y="139" font-size="10" font-family="Arial" fill="white" text-anchor="middle" font-weight="bold">T</text>
+  
+  <!-- Pressure gauge hint (small arc) -->
+  <path d="M 60 165 A 15 15 0 0 1 85 165" fill="none" stroke="#81c784" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="72" y1="165" x2="80" y2="155" stroke="#81c784" stroke-width="1.5" stroke-linecap="round"/>
+  
+  <!-- Project name -->
+  <text x="100" y="185" font-size="11" font-family="Arial" fill="#e3f2fd" text-anchor="middle" font-weight="bold">WX STATION</text>
+</svg>

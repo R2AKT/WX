@@ -1,0 +1,31 @@
+License Addendum
+
+In addition to the MIT License (see LICENSE.txt), the following terms apply:
+
+1. Hardware Compatibility
+   This software is designed for a specific sensor configuration
+   (DS18B20, BME280, SHT31, AS5600, TLE4934 on Arduino Nano with ENC28J60).
+   No warranty is provided for use with different hardware.
+
+2. Third-Party Libraries
+   - EtherCard library (JeeLabs) — LGPL 2.1
+   - DallasTemperature library — MIT
+   - paho-mqtt — Eclipse Public License 2.0
+   - WeeWX — GPL 2.0 (optional dependency)
+   
+   When using this software with these libraries, the terms of the
+   respective licenses apply to those components.
+
+3. Protocol Compliance
+   The WeeWX bridge (WX_2_WEE_v2.py) implements the WeatherFlow Tempest
+   UDP Protocol v1.7.1 specification. The original specification is
+   published by WeatherFlow and may be subject to change in future versions.
+
+4. No Fitness for Purpose
+   While this station provides meteorological data, the accuracy and
+   reliability of readings are not guaranteed for scientific or
+   navigational use.
+
+5. Attribution
+   If you fork, clone, or reference this project, please retain the
+   original author credit (R2AKT) in your documentation.
